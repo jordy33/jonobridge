@@ -24,7 +24,7 @@ Jonoprotocol solves this by acting as a **translator**, ensuring all device data
 
 ## Jonoprotocol Core Schema
 
-The core schema is defined in `pkg/common/models` as Go structs, with the primary struct being `JonoModel`.  
+The core schema is defined in common/models` as Go structs, with the primary struct being `JonoModel`.  
 This schema ensures **all interpreters** produce a uniform output, standardizing fields such as device identification, location, events, and extensible telemetry (e.g., sensors, IO ports, CAN data). Below is a detailed explanation of the `JonoModel` and its associated structs.
 
 ### JonoModel Struct
@@ -284,7 +284,7 @@ type IoPortsStatus struct {
 
 ## Protocol Interpreters
 
-Each supported protocol has its own interpreter in `pkg/interpreters`.  
+Each supported protocol has its own interpreter in `interpreters`.  
 Its mission: **parse vendor-specific data → output Jonoprotocol**.
 
 ### 1. Huabao
@@ -346,9 +346,8 @@ MQTT is the backbone of jonobridge for:
 |--------------------|---------------------------------------|----------------------------------------|----------------------------------------------|
 | Huabao             | `tracker/from-tcp`, `tracker/from-udp`| `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Each message handled in a goroutine; persistent session, auto-reconnect. |
 | Meitrackprotocol   | `tracker/from-tcp`, `tracker/from-udp`| `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Goroutine pool, circuit breaker, health monitor, buffered channels. |
-| OBD                | (varies, see implementation)          | (varies, see implementation)           | Uses MQTT for decoupling, cache for device data. |
-| Pinoprotocol       | (varies, see implementation)          | (varies, see implementation)           | Sync.Map for device cache, RWMutex for critical ops, non-blocking. |
-| Queclinkprotocol   | (command-line, not MQTT)              | (command-line, not MQTT)               | No MQTT, processes data from CLI.             |
+| Pinoprotocol       | `tracker/from-tcp`, `tracker/from-udp | `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Sync.Map for device cache, RWMutex for critical ops, non-blocking. |
+| Queclinkprotocol   | `tracker/from-tcp`, `tracker/from-udp | `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Goroutine pool, circuit breaker, health             |
 | Ruptelaprotocol    | `tracker/from-tcp`, `tracker/from-udp`| `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Goroutine per message, persistent session, auto-reconnect. |
 | Skywaveprotocol    | `tracker/from-tcp`, `tracker/from-udp`| `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Goroutine per message, persistent session, auto-reconnect. |
 | Suntech            | `tracker/from-tcp`, `tracker/from-udp`| `tracker/jonoprotocol`, `tracker/assign-imei2remoteaddr` | Goroutine per message, persistent session, auto-reconnect. |
