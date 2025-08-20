@@ -1,0 +1,1 @@
+export SPOOF_IMEI_URL="https://pluto.dudewhereismy.com.mx/virtualimeis?appId=244"

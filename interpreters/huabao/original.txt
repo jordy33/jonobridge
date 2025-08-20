@@ -1,0 +1,330 @@
+package main
+
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"encoding/hex" 
+	"flag"
+	"fmt"
+	_ "github.com/go-sql-driver/mysql"
+	"log"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
+
+/*
+SELECT DevIDNO,STime,EjingDU,EWeiDu FROM 1010gps.jt808_vehicle_daily where EjingDU!=0 GROUP BY DevIDNO having MAX(STime) ;
+
+create table temp_imei (
+  DEVIDNO varchar(40),
+  STime datetime ,
+  latitude varchar(254),
+  longitude varchar(254)
+);
+
+LOAD DATA INFILE '/var/lib/mysql-files/positions.csv'
+INTO TABLE temp_imei
+FIELDS TERMINATED BY ','
+ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+create table huabao (
+  id int auto_increment not null primary key,
+  DEVIDNO varchar(40),
+  STime datetime ,
+  latitude varchar(254),
+  longitude varchar(254)
+);
+
+insert into huabao (DEVIDNO,STime,latitude,longitude) select DEVIDNO,STime,latitude,longitude from temp_imei;
+*/
+
+var localAddress *string = flag.String("l", "138.68.54.137:8545", "Local address")
+var remoteAddress *string = flag.String("r", "13.58.226.245:6608", "Remote address")
+
+var (
+	// DBCon is the connection handle
+	// for the database
+	db *sql.DB
+)
+
+func FloatToString(input_num float64, presicion int) string {
+	// to convert a float number to a string
+	return strconv.FormatFloat(input_num, 'f', presicion, 64)
+}
+
+func dvrProcess(data string) {
+	lines := strings.Split(data, "#")
+	sizeLines := len(lines)
+	if sizeLines > 0 {
+		for element := 0; element < sizeLines; element++ {
+			line := lines[element]
+			fields := strings.Split(line, ",")
+			if len(fields) > 14 {
+				// MVT380 MVT100
+				s := strings.Split(line, ",")
+				if len(s) > 0 {
+					id := s[0]
+					if len(id) > 2 {
+						if id[0:2] == "$$" {
+							//counter,event,imei,datetime,lon_d,lon_m,lon_s,lat_d,lat_m,lat_s,speed,heading:=s[1],s[2],s[3],s[5],s[7],s[8],s[9],s[10],s[11],s[12],s[13],s[14]
+							event, imei, datetime, lon_d, lon_m, lon_s, lat_d, lat_m, lat_s, speed, heading := s[2], s[3], s[5], s[7], s[8], s[9], s[10], s[11], s[12], s[13], s[14]
+							//fmt.Println("ID:",id)
+							//fmt.Println("Counter:",counter)
+							fmt.Println("IMEI:", imei)
+							//logIMEIToElastic(imei, "8545", "dvr")
+
+							if imei == "0210906" {
+								fmt.Println("IMEI:", imei)
+								fmt.Println("Event:", event)
+								fmt.Println("data:", line)
+
+							}
+
+							year := datetime[0:2]
+							month := datetime[2:4]
+							day := datetime[4:6]
+							hour := datetime[7:9]
+							minutes := datetime[9:11]
+							seconds := datetime[11:13]
+							datetime = "20" + year + "/" + month + "/" + day + " " + hour + ":" + minutes + ":" + seconds
+							//fmt.Println("Date time:",datetime)
+							var longitude float64 = 0.0
+							is_lon_negative := false
+							if degrees, err := strconv.ParseFloat(lon_d, 32); err == nil {
+								if degrees < 0 {
+									degrees = degrees * -1
+									is_lon_negative = true
+								}
+								longitude = longitude + degrees
+							}
+							if minutes, err := strconv.ParseFloat(lon_m, 32); err == nil {
+								minutes = minutes / 60
+								longitude = longitude + minutes
+							}
+							if seconds, err := strconv.ParseFloat(lon_s, 32); err == nil {
+								seconds = (seconds / 10000000)
+								seconds = seconds / 3600
+								longitude = longitude + seconds
+							}
+							if is_lon_negative {
+								longitude = longitude * -1
+							}
+
+							var latitude float64 = 0.0
+							if degrees, err := strconv.ParseFloat(lat_d, 32); err == nil {
+								if degrees < 0 {
+									degrees = degrees * -1
+									is_lon_negative = true
+								}
+								latitude = latitude + degrees
+							}
+							if minutes, err := strconv.ParseFloat(lat_m, 32); err == nil {
+								minutes = minutes / 60
+								latitude = latitude + minutes
+							}
+							if seconds, err := strconv.ParseFloat(lat_s, 32); err == nil {
+								seconds = (seconds / 10000000)
+								seconds = seconds / 3600
+								latitude = latitude + seconds
+							}
+							lon := FloatToString(longitude, 6)
+							lat := FloatToString(latitude, 6)
+							//fmt.Println("Longitude:",lon)
+							//fmt.Println("Speed:",speed)
+							var r float64 = 0.0
+							if az, err := strconv.ParseFloat(heading, 32); err == nil {
+								r = az / 100.0
+							}
+							azimuth := FloatToString(r, 0)
+							//fmt.Println("Azimuth:",azimuth)
+							//current := time.Now().UTC()
+							current := time.Now()
+							receptionDate := fmt.Sprintf("%d/%02d/%02d %02d:%02d:%02d", current.Year(), current.Month(), current.Day(), current.Hour(), current.Minute(), current.Second())
+							indate := "*" + receptionDate + " "
+							data := "IMEI:" + imei + ",DVR," + event + "," + lat + "," + lon + "," + speed + "," + azimuth
+							cmd := "update devices set lastupdate='" + receptionDate + "',event_code='" + event + "',latitude='" + lat + "',longitude='" + lon + "',altitude='" + "0" + "',speed='" + speed + "',angle='" + azimuth + "',log='" + indate + data + "' where imei='" + imei + "';"
+
+							if len(fields) > 33 {
+								if event == "V201" || event == "V251" {
+									//fmt.Println("START IO3 ALARM: "+datetime)
+									/*
+										    if imei=="0290750"{
+											fmt.Println("Alarm!!")
+											}
+
+									*/
+									cmd = "update devices set lastupdate='" + receptionDate + "',panic='" + "true" + "',event_code='" + event + "',latitude='" + lat + "',longitude='" + lon + "',altitude='" + "0" + "',speed='" + speed + "',angle='" + azimuth + "',log='" + indate + data + "' where imei='" + imei + "';"
+								}
+
+							}
+							//fmt.Println("----------------------------------")
+							db.Exec(cmd)
+						}
+					}
+
+				}
+
+			}
+
+		}
+
+	}
+}
+
+type IMEILogEntry struct {
+	Port        string    `json:"port"`
+	Application string    `json:"application"`
+	IMEI        string    `json:"imei"`
+	Timestamp   time.Time `json:"timestamp"`
+	Event       string    `json:"event,omitempty"`
+}
+
+func logIMEIToElastic(imei, port, application string) {
+	go func() {
+		logEntry := IMEILogEntry{
+			Port:        port,
+			Application: application,
+			IMEI:        imei,
+			Timestamp:   time.Now(),
+			Event:       "connection",
+		}
+
+		jsonData, err := json.Marshal(logEntry)
+		if err != nil {
+			log.Printf("Error marshaling JSON for IMEI %s: %v", imei, err)
+			return
+		}
+		fmt.Println("Logging to ElasticSearch:", string(jsonData))
+
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, err := http.NewRequest("POST",
+			"http://elasticserver.dwim.mx:9200/imei-tracking/_doc/",
+			bytes.NewBuffer(jsonData))
+		if err != nil {
+			log.Printf("Error creating HTTP request for IMEI %s: %v", imei, err)
+			return
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Printf("Error sending request to ElasticSearch for IMEI %s: %v", imei, err)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			log.Printf("ElasticSearch returned error status %d for IMEI %s", resp.StatusCode, imei)
+			// Read response body for more details
+			body := make([]byte, 1024)
+			n, _ := resp.Body.Read(body)
+			if n > 0 {
+				log.Printf("ElasticSearch error response: %s", string(body[:n]))
+			}
+		} else {
+			log.Printf("Successfully logged IMEI %s to ElasticSearch (status: %d)", imei, resp.StatusCode)
+		}
+	}()
+}
+
+func main() {
+
+	var err error
+	db, err = sql.Open("mysql", "gpscontrol:qazwsxedc@/bridge")
+	if err != nil {
+		panic(err.Error()) // Just for example purpose. You should use proper error handling instead of panic
+	}
+
+	//fmt.Printf("Listening: %v\nProxying %v\n", *localAddress, *remoteAddress)
+
+	addr, err := net.ResolveTCPAddr("tcp", *localAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	listener, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		conn, err := listener.AcceptTCP()
+		fmt.Println("for inf")
+		if err != nil {
+			panic(err)
+		}
+
+		go proxyConnection(conn)
+	}
+
+}
+
+func proxyConnection(conn *net.TCPConn) {
+	rAddr, err := net.ResolveTCPAddr("tcp", *remoteAddress)
+	if err != nil {
+		panic(err)
+	}
+
+	rConn, err := net.DialTCP("tcp", nil, rAddr)
+	if err != nil {
+		// If the remote is not available
+		defer conn.Close()
+	} else {
+		defer rConn.Close()
+		stopchan := make(chan struct{})
+		// a channel to signal that it's stopped
+		stoppedchan := make(chan struct{})
+		// Request loop
+		go func() {
+			defer close(stoppedchan)
+			for {
+				data := make([]byte, 1024*1024)
+				n, err := conn.Read(data)
+
+				if err != nil {
+					//panic(err)
+					//fmt.Println("REQUEST Go routines:",runtime.NumGoroutine())
+					close(stopchan)
+					rConn.Close()
+					return
+				} else {
+					rConn.Write(data[:n])
+					dvrProcess(string(data[:n]))
+					//fmt.Println(string(data[:n]))
+					log.Printf("From Tracker to platform:\n%v", hex.Dump(data[:n]))
+					//log.Printf("sent:\n%v", hex.Dump(data[:n]))
+					//fmt.Println(string(data[:n]))
+					//var mem runtime.MemStats
+					//runtime.ReadMemStats(&mem)
+					//log.Printf("Allocated memory: %fMB. Number of goroutines: %d", float32(mem.Alloc)/1024.0/1024.0, runtime.NumGoroutine())
+				}
+
+			}
+		}()
+
+		// Response loop
+		for {
+			data := make([]byte, 1024*1024)
+			n, err := rConn.Read(data)
+			if err != nil {
+				//panic(err)
+				//fmt.Println("RESPONSE Go routines:",runtime.NumGoroutine())
+				defer conn.Close()
+				rConn.Close()
+				return
+			} else {
+				conn.Write(data[:n])
+
+			}
+
+		}
+
+	}
+
+}

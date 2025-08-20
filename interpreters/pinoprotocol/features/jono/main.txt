@@ -1,0 +1,221 @@
+package jono
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"pinoprotocol/features/jono/models"
+	"strconv"
+	"strings"
+)
+
+// Debug logging flag
+var verbose = false
+
+// EnableVerboseLogging sets the verbose flag for logging
+func EnableVerboseLogging(enable bool) {
+	verbose = enable
+	if verbose {
+		log.Println("Jono parser verbose logging enabled")
+	}
+}
+
+// Initialize processes input data and returns a normalized protocol string
+func Initialize(rawData string) (string, error) {
+	if verbose {
+		log.Printf("Jono initializing with data: %s", rawData)
+	}
+
+	// Check if this is an alarm packet from the GT06 protocol
+	if strings.Contains(rawData, "\"alarmAndLanguage\"") {
+		return handleAlarmPacket(rawData)
+	}
+
+	// Otherwise process as a standard location packet
+	return processLocationData(rawData)
+}
+
+// handleAlarmPacket specifically processes alarm packets which have a different structure
+func handleAlarmPacket(rawData string) (string, error) {
+	if verbose {
+		log.Printf("Processing alarm packet: %s", rawData)
+	}
+
+	// Define structures for GT06 alarm parsing
+	type AlarmLocation struct {
+		IMEI               string                 `json:"IMEI"`
+		DateTime           string                 `json:"Datetime"`
+		EventCode          string                 `json:"EventCode"`
+		NumberOfSatellites int                    `json:"NumberOfSatellites"`
+		PositioningStatus  string                 `json:"PositioningStatus"`
+		Latitude           float64                `json:"Latitude"`
+		Longitude          float64                `json:"Longitude"`
+		Speed              int                    `json:"Speed"`
+		Direction          int                    `json:"Direction"`
+		MCC                string                 `json:"MCC"`
+		MNC                string                 `json:"MNC"`
+		VoltageValue       float64                `json:"VoltageValue"`
+		GSMSignalStrength  int                    `json:"GSMSignalStrength"`
+		BaseStationInfo    map[string]interface{} `json:"BaseStationInfo"`
+	}
+
+	type AlarmData struct {
+		LocationPacketModel AlarmLocation     `json:"locationPacketModel"`
+		AlarmAndLanguage    map[string]string `json:"alarmAndLanguage"`
+		// Other fields not directly needed for jono conversion
+	}
+
+	// Parse the raw alarm data
+	var alarmData AlarmData
+	if err := json.Unmarshal([]byte(rawData), &alarmData); err != nil {
+		return "", fmt.Errorf("error parsing alarm data: %v", err)
+	}
+
+	if verbose {
+		log.Printf("Parsed alarm data: %+v", alarmData)
+	}
+
+	// Get event code from alarm data
+	eventCodeInt := 1 // Default to SOS/alarm
+	if alarmData.AlarmAndLanguage != nil {
+		if ecStr, ok := alarmData.AlarmAndLanguage["EventCode"]; ok {
+			if ec, err := strconv.Atoi(ecStr); err == nil {
+				eventCodeInt = ec
+			}
+		}
+	}
+
+	// Build the jono model
+	jonoModel := models.ParsedModel{
+		ListPackets: make(map[string]models.Packet),
+	}
+
+	// Set IMEI
+	var imeiVal string = alarmData.LocationPacketModel.IMEI
+	jonoModel.IMEI = &imeiVal
+
+	// Set message
+	var message string = "Alarm event"
+	jonoModel.Message = &message
+
+	// Set data packets count
+	var packets int = 1
+	jonoModel.DataPackets = &packets
+
+	// Create the packet with alarm data
+	packet := models.Packet{
+		EventCode: models.EventCode{
+			Code: eventCodeInt,
+			Name: getEventName(eventCodeInt),
+		},
+		NumberOfSatellites: alarmData.LocationPacketModel.NumberOfSatellites,
+	}
+
+	// Set datetime if available
+	if alarmData.LocationPacketModel.DateTime != "" {
+		datetime := alarmData.LocationPacketModel.DateTime
+		packet.Datetime = &datetime
+	}
+
+	// Set coordinates if available
+	if alarmData.LocationPacketModel.Latitude != 0 {
+		lat := alarmData.LocationPacketModel.Latitude
+		packet.Latitude = &lat
+	}
+
+	if alarmData.LocationPacketModel.Longitude != 0 {
+		lon := alarmData.LocationPacketModel.Longitude
+		packet.Longitude = &lon
+	}
+
+	// Set speed if available
+	if alarmData.LocationPacketModel.Speed != 0 {
+		speed := alarmData.LocationPacketModel.Speed
+		packet.Speed = &speed
+	}
+
+	// Set direction if available
+	if alarmData.LocationPacketModel.Direction != 0 {
+		direction := alarmData.LocationPacketModel.Direction
+		packet.Direction = &direction
+	}
+
+	// Set positioning status if available
+	if alarmData.LocationPacketModel.PositioningStatus != "" {
+		status := alarmData.LocationPacketModel.PositioningStatus
+		packet.PositioningStatus = &status
+	}
+
+	// Set GSM signal strength if available
+	if alarmData.LocationPacketModel.GSMSignalStrength > 0 {
+		gsm := alarmData.LocationPacketModel.GSMSignalStrength
+		packet.GSMSignalStrength = &gsm
+	}
+
+	// Create AnalogInputs to store voltage as AD4
+	if alarmData.LocationPacketModel.VoltageValue > 0 {
+		packet.AnalogInputs = &models.AnalogInputs{}
+		// Convert voltage to string for AD4
+		voltsStr := fmt.Sprintf("%.0f", alarmData.LocationPacketModel.VoltageValue)
+		packet.AnalogInputs.AD4 = &voltsStr
+		if verbose {
+			log.Printf("DEBUG: Final AD4 voltage: %s (decimal) -> %s (hex)",
+				voltsStr, voltsStr)
+		}
+	}
+
+	// Store the packet in the model
+	jonoModel.ListPackets["Packet1"] = packet
+
+	// Convert to JSON
+	jsonData, err := jonoModel.ToJSON()
+	if err != nil {
+		return "", fmt.Errorf("error creating jono JSON: %v", err)
+	}
+
+	if verbose {
+		prettyJson, _ := jonoModel.ToPrettyJSON()
+		log.Printf("Final jono JSON: %s", prettyJson)
+	}
+
+	return jsonData, nil
+}
+
+// processLocationData handles standard location packets
+func processLocationData(rawData string) (string, error) {
+	// ... existing location packet processing code ...
+	// (Keep your current implementation)
+	return rawData, nil
+}
+
+// getEventName returns a human-readable name for an event code
+func getEventName(code int) string {
+	switch code {
+	case 0:
+		return "Power On"
+	case 1:
+		return "SOS Alarm"
+	case 2:
+		return "Over Speed"
+	case 3:
+		return "Movement Alarm"
+	case 4:
+		return "Vibration Alarm"
+	case 5:
+		return "Low Power Alarm"
+	case 20:
+		return "Geo-fence In"
+	case 21:
+		return "Geo-fence Out"
+	case 23:
+		return "Power Cut"
+	case 35:
+		return "Normal Location"
+	case 50:
+		return "General Alarm"
+	case 79:
+		return "Shock Alarm"
+	default:
+		return "Unknown Alarm"
+	}
+}

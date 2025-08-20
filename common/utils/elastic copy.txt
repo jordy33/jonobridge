@@ -1,0 +1,88 @@
+package utils
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
+	"regexp"
+	"strings"
+)
+
+// ElasticLogData represents the data structure for Elasticsearch logging
+type ElasticLogData struct {
+	Client     string `json:"client"`
+	IMEI       string `json:"imei"`
+	Payload    string `json:"payload"`
+	Time       string `json:"time"`
+	StatusCode int    `json:"status-code"`
+	StatusText string `json:"status-text"`
+}
+
+// SendToElastic sends log data to Elasticsearch with proper indexing
+func SendToElastic(logData ElasticLogData, customerName string) error {
+	// Obtener la URL base de Elasticsearch
+	elasticBaseURL := os.Getenv("ELASTIC_URL")
+	if elasticBaseURL == "" {
+		elasticBaseURL = "http://elasticserver.dwim.mx:9200"
+	}
+
+	// Convertir customerName a snake_case en minúsculas
+	customerName = ToSnakeCase(customerName)
+
+	// Construir la URL dinámica del índice
+	indexName := customerName // Just use the customer name as the index
+	elasticURL := fmt.Sprintf("%s/%s/_doc", elasticBaseURL, indexName)
+
+	// Debug: Verificar datos antes de enviar
+	VPrint("Elastic URL: %s", elasticURL)
+	//VPrint("Log Data: %+v", logData)
+
+	// Convertir los datos a JSON
+	jsonData, err := json.Marshal(logData)
+	if err != nil {
+		VPrint("Error marshaling log data: %v", err)
+		return fmt.Errorf("error marshaling log data: %v", err)
+	}
+
+	// Debug: Ver JSON generado
+	//VPrint("JSON Data to send: %s", string(jsonData))
+
+	// Crear la solicitud HTTP
+	req, err := http.NewRequest("POST", elasticURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		VPrint("Error creating elastic request: %v", err)
+		return fmt.Errorf("error creating elastic request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Enviar la solicitud a Elasticsearch
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		VPrint("Error sending to Elasticsearch: %v", err)
+		return fmt.Errorf("error sending to elastic: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Verificar el código de respuesta
+	if resp.StatusCode >= 400 {
+		VPrint("Elastic error: status code %d", resp.StatusCode)
+		return fmt.Errorf("elastic error: status code %d", resp.StatusCode)
+	}
+
+	VPrint("Data successfully sent to Elasticsearch with status code %d", resp.StatusCode)
+	return nil
+}
+
+// ToSnakeCase converts a string to snake_case format (lowercase with underscores)
+func ToSnakeCase(input string) string {
+	// Reemplazar espacios por guiones bajos
+	re := regexp.MustCompile(`\s+`)
+	snake := re.ReplaceAllString(strings.TrimSpace(input), "_")
+
+	// Convertir a minúsculas
+	return strings.ToLower(snake)
+}

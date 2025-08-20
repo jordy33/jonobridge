@@ -1,0 +1,63 @@
+## MeitrackProtocol
+
+### Testing
+```
+mosquitto_pub -h localhost -t tracker/raw -m 24245e3133392c3836363831313036323534363630342c4343452c000000000100690017000505000600070914001502090800000900000a00000b00001606001703001902001ae8044023000602f2dd290103a82616fa04ff51d12e0c000000000d067b0a001c01200000030e0c4e0114005a02027e4b02000049090400000000000000004b0501010234472a36340d0a -p 1883
+
+
+ubuntu@ip-172-31-19-94:~$ mosquitto_sub -h localhost -p 1883 -t "tracker/mvt380"
+24244132302c3836363831313036323534363630342c4141412c33352c31392e35323130312c2d39392e3231313630382c323032342d31312d32315430323a30353a35315a2c66616c73652c302c392c302c302c302c302c302c3638363835342c3333347c32307c3630327c332e383530313839652b30372c31302c303030317c303030307c303030307c303141352c30303030303030302c2a3030
+
+ubuntu@ip-172-31-19-94:~$ mosquitto_sub -h localhost -p 1883 -t "tracker/raw"
+24245e3133392c3836363831313036323534363630342c4343452c000000000100690017000505000600070914001502090800000900000a00000b00001606001703001902001ae8044023000602f2dd290103a82616fa04ff51d12e0c000000000d067b0a001c01200000030e0c4e0114005a02027e4b02000049090400000000000000004b0501010234472a36340d0a
+```
+
+### Building Docker
+
+```
+cd /home/ubuntu/jonobridge/pkg/meitrackprotocol
+docker build -t meitrackprotocol -f ./Dockerfile .
+docker tag meitrackprotocol maddsystems/meitrackprotocol:1.0.0
+docker push maddsystems/meitrackprotocol:1.0.0
+
+```
+
+Testing:
+
+00000000  7e 02 00 00 71 09 90 74  47 75 95 00 0c 00 00 00  |~...q..tGu......|
+00000010  00 00 00 00 0b 01 29 de  2e 05 e9 d9 86 08 e9 00  |......).........|
+00000020  00 00 00 25 04 25 17 05  12 01 04 00 00 5d 07 30  |...%.%.......].0|
+00000030  01 1f 31 01 0f eb 47 00  0c 00 b2 89 52 07 03 10  |..1...G.....R...|
+00000040  00 13 34 66 21 00 06 00  89 ff ff ff ff 00 06 00  |..4f!...........|
+00000050  c5 ff ff ff ff 00 03 01  02 04 00 04 00 ce 01 82  |................|
+00000060  00 04 00 2d 0f 1b 00 03  00 a8 55 00 11 00 d5 38  |...-......U....8|
+00000070  36 30 36 39 39 30 37 34  34 37 37 35 39 35 73 7e  |60699074477595s~|
+2025/04/25 23:05:13 Successfully sent data MQTT: tracker/from-tcp
+2025/04/25 23:05:13 Assigning imei: 8699074477595 to address: 10.244.0.1:65117 from protocol pino
+
+The key issue was in the IMEI extraction logic. According to the BSJ-EG01-v1.0.1.md specification and the hex dump, the IMEI is stored with the following format:
+
+Length field (2 bytes): 00 11 (17 bytes total)
+ID field (2 bytes): 00 D5 (Device IMEI identifier)
+IMEI data (15 bytes): ASCII representation of the 15-digit IMEI
+The previous implementation might have been looking for a different format or missing some bytes during extraction. The updated function now includes better handling for the specific BSJ format seen in your logs and properly extracts the complete 15-digit IMEI.
+
+With this change, the function should correctly identify and extract 860699074477595 as the full IMEI from the extended data section.
+
+Protocol 15
+
+78 78 8b 15 83 00 00 00 01 43 75 72 72 65 6e 74
+20 70 6f 73 69 74 69 6f бе За 4с 61 74 За 4e 31
+39 2e 35 32 31 30 31 32 2c 4c 6f 6e За 57 39 39
+2e 32 31 31 37 36 37 2c 44 61 74 65 54 69 6d 65
+За 32 30 32 35 2d 30 34 2d 33 30 20 31 34 За 31
+30 За 35 35 2c 68 74 74 70 За 2f 2f 6d 61 70 73
+2e 67 6f 6f 67 6c 65 2e 63 6f 6d 2f 6d 61 70 73
+3f 71 3d 4e 31 39 2e 35 32 31 30 31 32 2c 57 39
+39 2e 32 31 31 37 36 37 00 02 00 07 3f fd 0d Oa
+
+78788b15830000000143757272656e7420706f736974696fбеЗа4с6174За4e31392e3532313031322c4c6f6eЗа5739392e3231313736372c4461746554696d65За323032352d30342d3330203134За3130За35352c68747470За2f2f6d6170732e676f6f676c652e636f6d2f6d6170733f713d4e31392e3532313031322c5739392e323131373637000200073ffd0dOa
+
+
+
+kubectl logs -n pinos -f listener-58d67b9b98-h5k7g

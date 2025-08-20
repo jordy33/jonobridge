@@ -1,0 +1,43 @@
+1.2 MDVR Command Format
+Data will be uploaded in CCE protocol format.
+$$<Data identifier><Data length>,<IMEI>,<Command type>,<Number of remaining cache records><Number of data packets><Data packet 1><Data packet 2>...<*Checksum>\r\n
+Example:24 24 50 31 30 36 34 2C 38 36 31 35 38 35 30 34 30 34 39 34 34 36 38 2C 43 43 45 2C 19 00 00 00 0C 00 54 00 15 00 05 05 01 06 0A 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 07 00 0B 26 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 06 02 D7 87 57 01 03 48 60 CC 06 04 DE BF B5 24 0C 80 68 00 00 0D E4 A0 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 05 05 01 06 09 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 09 00 0B 27 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 06 02 D0 87 57 01 03 41 60 CC 06 04 E8 BF B5 24 0C 80 68 00 00 0D EE A0 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 05 05 01 06 09 07 00 14 00 15 02 09 08 00 00 09 1F 01
+0A 0B 00 0B 27 F2 BF B5 24 0C 15 00 05 05 01 A3 01 1A 26 05 00 1C 01 00 00 09 08 00 00 09 01 03 3E 60 CC 00 00 00 00 00 16 00 00 17 00 68 00 00 0D 15 09 07 00 14 00 23 00 06 02 E9 01 49 09 04 01 01 0A 08 00 0B 04 24 C0 B5 24 00 15 00 05 05 19 A2 01 1A 26 03 00 1C 01 00 02 09 08 00 00 57 01 03 FF 5F 00 00 00 00 00 00 16 00 00 17 80 68 00 00 0D 06 0A 07 00 14 40 23 00 06 02 00 01 49 09 04
+00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 06 02 CF 87 57 01 03 3E 80 68 00 00 0D F8 A0 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 00 06 0A 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 08 00 0B 27 00 16 00 00 40 23 00 06 02 D4 87 57 01 03 43 60 CC 06 04 FC BF B5 24 0C 80 68 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 05 05 01 06 0A 07 00 1F 01 0A 07 00 0B 25 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 06 06 04 06 C0 B5 24 0C 80 68 00 00 0D 0B A1 03 00 1C 01 00 00 00 01 49 09 54 00 15 00 05 05 01 06 0A 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 08 00 19 A2 01 1A 26 05 40 23 00 06 02 DF 87 57 01 03 2F 60 CC 06 04 10 C0 A1 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 15 02 09 08 00 00 09 1F 01 0A 08 00 0B 22 00 16 00 00 17 00 00 19 A2 01 87 57 01 03 14 60 CC 06 04 1A C0 B5 24 0C 80 68 00 00 0D 1F A1 03 00 1C 00 00 00 00 00 00 00 54 00 15 00 05 05 01 06 09 07 00 14 00 15 02 09 08 21 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 06 02 EE 87 57 01 03 0C 80 68 00 00 0D 29 A1 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 01 06 09 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 08 00 0B 21 00 16 00 05 40 23 00 06 02 E9 87 57 01 03 16 60 CC 06 04 2E C0 B5 24 0C 80 68 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 05 05 01 06 09 07 09 1F 01 0A 09 00 0B 23 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00 CC 06 04 39 C0 B5 24 0C 80 68 00 00 0D 3D A1 03 00 1C 01 00 00 00 01 49 00 54 00 15 00 05 05 01 06 09 07 00 14 00 15 02 09 08 00 00 09 1F 01 0A 00 00 19 A2 01 1A 26 05 40 23 00 06 02 E8 87 57 01 03 E7 5F CC 06 04 43 46 A1 03 00 1C 01 00 00 00 01 49 09 04 01 00 00 00 00 00 00 00 54 00 15 00 15 02 09 08 00 00 09 17 01 0A 08 00 0B 23 00 16 00 00 17 00 00 19 A2 E8 87 57 01 03 D7 5F CC 06 04 4D C0 B5 24 0C 80 68 00 00 0D 50 A1 03 00
+60 CC 06 04 00 00 54 00 17 00 00 19 0D 02 A1 03 14 00 15 02 02 DA 87 57 04 01 00 00 00 0B 24 00 B5 24 0C 80 05 05 01 06 1A 26 05 40 01 00 00 00 00 00 09 1F 0E 60 CC 06 00 00 00 54 00 17 00 00 00 0D 33 A1 00 14 00 15 06 02 E6 87 09 04 01 00 09 00 0B 23 C0 B5 24 0C 00 05 05 01 01 1A 26 05 1C 01 00 00
+01 00 00 00
+00 00 00 00 2A 32 30 0D 0A
+remaining buffer data is 25 packets.
+Data parsing:
+19 00 00 00: The number of 0C 00:This packet of data
+There are 12 small packets
+54 00:The length of this packet is 15 00:The number of data ID is 21.
+includes
+12 small packets of data.
+they are parsed as below: 84 bytes.
+of data,
+05 05 01 06 0A 07 00 14 00 15 02:Info of 1-byte IDs are as below: 05:There are totally 5 1-byte IDs
+05 01:The GPS status is valid.
+06 0A:The number of satellites is 10.
+07 00:The strength of GSM is 0 14 00:The output status is 0x00 15 02:The input status is 0x00
+09 08 00 00 09 1F 01 0A 07 00 0B 26 00 16 00 00 17 00 00 19 A2 01 1A 26 05 40 23 00:
+
+ Info of 2-byte IDs are as below: 09:There are totally 9 2-bytes data IDs. 08 00 00:The current speed is 0km/h
+09 1F 01:The direction is 287 degrees. 0A 07 00:The horizontal accuracy is 7. 0B 26 00:The altitude is 38 meters.
+16 00 00:The voltage of AD1 is 17 00 00:The voltage of AD2 is 19 A2 01:The voltage of AD4 is 1A 26 05:The voltage of AD5 is 40 23 00:The event code is 35.
+0 volts.
+0 volts.
+4.18 volts, representing interval battery is 4.18V. 13.18 volts, representing external battery is 13.18V.
+06 02 D7 87 57 01 03 48 60 CC 06 04 DE BF B5 24 0C 80 68 00 00 0D E4 A0 03 00 1C 01 00 00 00: Info of 4-bytes data IDs are as below:
+06:There are totally 6 4-bytes data ID.
+02 D7 03 48 04 DE 0C 80 0D E4 time) 1C 01
+87 57 01:The longitude is 22.513623. 60 CC 06:The latitude is 114.057288.
+BF B5 24:The time is 615890910 seconds(Indicating it’s been 615890910 seconds since 2000) 68 00 00:The mileage is 6880 meters.
+A0 03 00:Indicating the running time is 237796 seconds(Since the device turns on for the first
+00 00 00:Indicating the system flag is 00 00 00 01.
+09 04 01 00 00 00 00 00 00 00
+Info of n-bytes data IDs are as below:
+01:Indicating there are totally 1 n-bytes data ID.
+49:0x49 is the ID of the camera status.
+09:The length of this ID is 9 bytes
+04 01 00 00 00 00 00 00 00:Camera status is 00 00 00 00 00 00 00 01 04
